@@ -357,13 +357,29 @@ public class EmbeddedAutomationClientTest extends AbstractAutomationClientTest {
         // 3. create a note and exit with error (+rollback)
         error = session.newRequest("exitError") //
                        .setInput("doc:/")
-                       .executeReturningExceptionEntity(SC_INTERNAL_SERVER_ERROR);
-        assertEquals("Internal Server Error", error);
+                       .executeReturningExceptionEntity(ExitOperation.ERR_CODE);
+        assertEquals("Failed to invoke operation: exitError, Failed to invoke operation Test.Exit, termination error",
+                error);
         // test the note was not created
         error = session.newRequest(FetchDocument.ID) //
                        .set("value", "/test-exit3")
                        .executeReturningExceptionEntity(SC_NOT_FOUND);
         assertEquals("Failed to invoke operation: Repository.GetDocument, /test-exit3", error);
+    }
+
+    // test error happening at the end of the chain when the request is disposed of
+    @Test
+    public void testErrorOnDispose() throws IOException {
+        // Usually the only errors that can happen on RequestContext.dispose() are those
+        // coming from RestOperationContext when it closes the OperationContext, which does a save().
+        // Given that it's hard in tests to cause an error in save(), we do it by
+        // adding dynamically in the operation another cleanup handler that throws.
+        String error = session.newRequest("exitError") //
+                              .setInput("doc:/")
+                              .setContextParameter("throwOnCleanup", true)
+                              .executeReturningExceptionEntity(ExitOperation.ERR_CODE);
+        assertEquals("Failed to invoke operation: exitError, Failed to invoke operation Test.Exit, termination error",
+                error);
     }
 
     @Test
